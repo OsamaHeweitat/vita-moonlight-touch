@@ -68,6 +68,7 @@ typedef struct _CONFIGURATION {
   struct input_config inputs[MAX_INPUTS];
   int inputsCount;
   int mouse_acceleration;
+  bool touch_mode;
   bool enable_ref_frame_invalidation;
   bool enable_vita_vblank_wait;
   FILE *log_file;

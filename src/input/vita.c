@@ -79,6 +79,7 @@ typedef struct TouchData {
 #define lerp(value, from_max, to_max) ((((value*10) * (to_max*10))/(from_max*10))/10)
 
 double mouse_multiplier;
+bool touch_mode;
 
 #define MOUSE_ACTION_DELAY 100000 // 100ms
 
@@ -100,6 +101,26 @@ inline bool mouse_click(short finger_count, bool press) {
       return true;
   }
   return false;
+}
+
+inline bool touch_tap(short finger_count, bool press, TouchData touch) {
+  int mode;
+
+  if (press) {
+    mode = LI_TOUCH_EVENT_DOWN;
+  } else {
+    mode = LI_TOUCH_EVENT_UP;
+  }
+
+  switch (finger_count) {
+    case 1:
+      LiSendTouchEvent(mode, 0, touch.points[0].x, touch.points[0].y, 0, 0, 0, 0);
+      return true;
+    default:
+      for (int i = 0; i < finger_count; i++) {
+        LiSendTouchEvent(mode, i, touch.points[i].x, touch.points[i].y, 0, 0, 0, 0);
+      }
+  }
 }
 
 inline void move_mouse(TouchData old, TouchData cur) {
@@ -124,6 +145,22 @@ inline void move_wheel(TouchData old, TouchData cur) {
     return;
   }
   LiSendScrollEvent(delta_y);
+}
+
+inline void touch_move(TouchData old, TouchData cur) {
+  int old_x = (old.points[0].x + old.points[1].x) / 2;
+  int old_y = (old.points[0].y + old.points[1].y) / 2;
+  int cur_x = (cur.points[0].x + cur.points[1].x) / 2;
+  int cur_y = (cur.points[0].y + cur.points[1].y) / 2;
+
+  int delta_x = (cur_x - old_x) / 2;
+  int delta_y = (cur_y - old_y) / 2;
+
+  if (delta_x == 0 && delta_y == 0) {
+    return;
+  }
+
+  LiSendTouchEvent(LI_TOUCH_EVENT_MOVE, 0, cur_x, cur_y, 0, 0, 0, 0);
 }
 
 SceCtrlData pad, pad_old;
@@ -408,11 +445,20 @@ static inline void vitainput_process(void) {
       if (sceRtcCompareTick(&current, &until) < 0) {
         if (touch.finger < finger_count) {
           // TAP
-          if (mouse_click(finger_count, true)) {
-            front_state = SCREEN_TAP;
-            sceRtcTickAddMicroseconds(&until, &current, MOUSE_ACTION_DELAY);
+          if (touch_mode) {
+            if (touch_tap(finger_count, true, touch)) {
+              front_state = SCREEN_TAP;
+              sceRtcTickAddMicroseconds(&until, &current, MOUSE_ACTION_DELAY);
+            } else {
+              front_state = NO_TOUCH_ACTION;
+            }
           } else {
-            front_state = NO_TOUCH_ACTION;
+            if (mouse_click(finger_count, true)) {
+              front_state = SCREEN_TAP;
+              sceRtcTickAddMicroseconds(&until, &current, MOUSE_ACTION_DELAY);
+            } else {
+              front_state = NO_TOUCH_ACTION;
+            }
           }
         } else if (touch.finger > finger_count) {
           // finger count changed
@@ -424,7 +470,11 @@ static inline void vitainput_process(void) {
       break;
     case SCREEN_TAP:
       if (sceRtcCompareTick(&current, &until) >= 0) {
-        mouse_click(finger_count, false);
+        if (touch_mode) {
+          touch_tap(finger_count, false, touch);
+        } else {
+          mouse_click(finger_count, false);
+        }
 
         front_state = NO_TOUCH_ACTION;
       }
@@ -435,13 +485,17 @@ static inline void vitainput_process(void) {
       break;
     case ON_SCREEN_SWIPE:
       if (touch.finger > 0) {
-        switch (touch.finger) {
-          case 1:
-            move_mouse(swipe, touch);
-            break;
-          case 2:
-            move_wheel(swipe, touch);
-            break;
+        if (touch_mode) {
+          touch_move(swipe, touch);
+        } else {
+          switch (touch.finger) {
+            case 1:
+              move_mouse(swipe, touch);
+              break;
+            case 2:
+              move_wheel(swipe, touch);
+              break;
+          }
         }
         memcpy(&swipe, &touch, sizeof(swipe));
       } else {

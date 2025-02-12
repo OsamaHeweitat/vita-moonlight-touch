@@ -127,6 +127,7 @@ target_link_libraries(${PROJECT_NAME}.elf
 	-lssl
 	-lcrypto
 	-lopus
+	-lbz2
 
 	-lSceDisplay_stub
 	-lSceCtrl_stub

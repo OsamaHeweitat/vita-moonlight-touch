@@ -412,6 +412,7 @@ enum {
   SETTINGS_BACK_DEADZONE,
   SETTINGS_SPECIAL_KEYS,
   SETTINGS_MOUSE_ACCEL,
+  SETTINGS_TOUCH_MODE,
 };
 
 enum {
@@ -433,6 +434,7 @@ enum {
   SETTINGS_VIEW_BACK_DEADZONE,
   SETTINGS_VIEW_SPECIAL_KEYS,
   SETTINGS_VIEW_MOUSE_ACCEL,
+  SETTINGS_VIEW_TOUCH_MODE,
 
   SETTINGS_VIEW_MAX_COUNT,
 };
@@ -664,7 +666,13 @@ static int settings_loop(int id, void *context, const input_data *input) {
 
       did_change = 1;
       break;
-
+    case SETTINGS_TOUCH_MODE:
+      if ((input->buttons & config.btn_confirm) == 0 || input->buttons & SCE_CTRL_HOLD) {
+        break;
+      }
+      did_change = 1;
+      config.touch_mode = !config.touch_mode;
+      break;
   }
 
   if (!did_change && !settings_loop_setup) {
@@ -729,6 +737,9 @@ static int settings_loop(int id, void *context, const input_data *input) {
 
   sprintf(current, "%d", config.mouse_acceleration);
   MENU_REPLACE(SETTINGS_VIEW_MOUSE_ACCEL, current);
+
+  sprintf(current, "%s", config.touch_mode ? "yes" : "no");
+  MENU_REPLACE(SETTINGS_VIEW_TOUCH_MODE, current);
   return 0;
 }
 
@@ -777,6 +788,7 @@ int ui_settings_menu() {
 
   MENU_CATEGORY("Input");
   MENU_ENTRY(SETTINGS_MOUSE_ACCEL, SETTINGS_VIEW_MOUSE_ACCEL, "Mouse acceleration", ICON_LEFT_RIGHT_ARROWS);
+  MENU_ENTRY(SETTINGS_TOUCH_MODE, SETTINGS_VIEW_TOUCH_MODE, "Touchscreen mode", "");
   MENU_ENTRY(SETTINGS_ENABLE_MAPPING, SETTINGS_VIEW_ENABLE_MAPPING, "Enable mapping file", "");
   MENU_MESSAGE("Located at ux0:data/moonlight/mappings/vita.conf");
   MENU_MESSAGE("Example in github repo.");
